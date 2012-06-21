@@ -13,10 +13,22 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
-import tweepy
-import pickle
-import argparse
+import sys, tweepy, pickle, argparse, signal
+
+def signal_handler(signal, frame):
+	print ""
+        sys.exit(0)
+
+def loadfile(filename):
+	try:
+		handler = open(filename, 'r')
+		variable = pickle.load(handler)
+		handler.close()
+	except:
+		# Unable to load file
+		variable = False
+
+	return variable
 
 parser = argparse.ArgumentParser(description='lister.py will find new twitter friends suggestions for you!')
 parser.add_argument('-u', '--user', action="store", type=str, dest="username", help="Your Twitter username", nargs='?', required=True)
@@ -29,15 +41,11 @@ results = parser.parse_args()
 
 crossed = {}
 if results.caching_file:
-	try:
-		# Do we have cached list results?
-		cachefile = open(results.caching_file, 'r') 
-		crossed = dict(pickle.load(cachefile))
-		cachefile.close()
+	# Do we have cached list results?
+	crossed = dict(loadfile(results.caching_file))
+
+	if len(crossed):
 		print "Cached iteration results loaded."
-	except:
-		# The specified file is currently empty. Will use it as output file only...
-		pass
 
 if not len(crossed):
 	# No items loaded from the cache file
@@ -49,14 +57,9 @@ if not len(crossed):
 	auth = tweepy.OAuthHandler(consumer_token, consumer_secret)
 
 	authparm = {}
-	try:
-		# Let's try to read cached authentications parameters
-		filehandler = open(results.auth_file, 'r') 
-		authparm = dict(pickle.load(filehandler))
-		filehandler.close()
-	except:
-		# No file...
-		pass
+	
+	# Let's try to read cached authentications parameters
+	authparm = dict(loadfile(results.auth_file))
 
 	# Do we have authentication tokens?
 	if not set(['auth_token', 'auth_secret']).issubset(authparm.keys()):
@@ -74,7 +77,7 @@ if not len(crossed):
 		# Caching authentication tokens for next iterations...
 		cachefile = open(results.auth_file, 'w') 
 		pickle.dump(authparm, cachefile) 
-		cachefile.close()	
+		cachefile.close()
 
 	print "Authenticating agains Twitter APIs..."
 	auth.set_access_token(authparm['auth_token'], authparm['auth_secret'])
@@ -96,8 +99,11 @@ if not len(crossed):
 			print "No lists found on your Twitter account!"
 			sys.exit(1)
 		else:
+			# We want to capture CTRL+C here...
+			signal.signal(signal.SIGINT, signal_handler)
+
 			results.twitter_list = menu[int(raw_input('Choose a list to analyze: ').strip())-1]
-	
+
 	print "Gathering friends of %s's '%s' list members..." % (results.username, results.twitter_list)
 
 	for user in api.list_members(results.username, results.twitter_list):
@@ -131,7 +137,7 @@ if not len(crossed):
 		# Caching results
 		cachefile = open(results.caching_file, 'w')
 		pickle.dump(crossed, cachefile) 
-		cachefile.close()	
+		cachefile.close()
 		print "Results saved in file %s" % results.caching_file
 
 print "== Suggested friends with at least %d list members in common ==" % results.minimum
