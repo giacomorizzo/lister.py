@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/apollo/bin/env -e TOSTools python2.7
 
 #	This program is free software: you can redistribute it and/or modify
 #	it under the terms of the GNU General Public License as published by
@@ -22,11 +22,11 @@ def signal_handler(signal, frame):
 def loadfile(filename):
 	try:
 		handler = open(filename, 'r')
-		variable = pickle.load(handler)
+		variable = dict(pickle.load(handler))
 		handler.close()
 	except:
 		# Unable to load file
-		variable = False
+		variable = {}
 
 	return variable
 
@@ -40,10 +40,10 @@ parser.add_argument('-v', '--version', action='version', version='%(prog)s 0.1')
 results = parser.parse_args()
 
 crossed = {}
+authparm = {}
 if results.caching_file:
 	# Do we have cached list results?
-	crossed = dict(loadfile(results.caching_file))
-
+	crossed = loadfile(results.caching_file)
 	if len(crossed):
 		print "Cached iteration results loaded."
 
@@ -56,10 +56,8 @@ if not len(crossed):
 
 	auth = tweepy.OAuthHandler(consumer_token, consumer_secret)
 
-	authparm = {}
-	
 	# Let's try to read cached authentications parameters
-	authparm = dict(loadfile(results.auth_file))
+	authparm = loadfile(results.auth_file)
 
 	# Do we have authentication tokens?
 	if not set(['auth_token', 'auth_secret']).issubset(authparm.keys()):
